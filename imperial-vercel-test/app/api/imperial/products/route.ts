@@ -19,7 +19,7 @@ export async function GET() {
   }
   try {
     const { rows } = await pool.query(
-      `SELECT id, slug, name, description, price, image_urls, category_id, created_at, updated_at
+      `SELECT id, slug, name, description, image_urls, category_id, created_at, updated_at
        FROM public.products
        ORDER BY created_at DESC`
     );

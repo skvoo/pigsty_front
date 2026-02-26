@@ -70,14 +70,27 @@
 
 ## 3. Если «Database error» (500) на Vercel
 
-На странице теста теперь выводится **текст ошибки** из API (поле `details`). По нему можно понять причину.
+На странице теста выводится **текст ошибки** из API (поле `details`). По нему можно понять причину.
+
+**Если видите «no authentication method is found»** — PgBouncer на сервере не разрешает подключение к imperialdb с внешних IP. Нужно применить конфиг и перезагрузить PgBouncer:
+
+```bash
+ssh st@104.223.25.234
+cd ~/pigsty
+./pgsql.yml -l pg-meta -t pgbouncer
+```
+
+Перед этим убедиться, что в `~/pigsty/pigsty.yml` в секции `pgb_hba_rules` есть правило с `db: imperialdb` (order 103). Если его нет — добавить из репо или вручную, затем снова выполнить плейбук выше.
+
+---
 
 **Типичные причины и что проверить:**
 
 | Сообщение (примерно) | Что проверить |
 |----------------------|----------------|
-| `connection refused`, `ECONNREFUSED`, `timeout` | Порт 6432 недоступен с Vercel: фаервол на сервере (ufw/iptables) — открыть 6432 для входящих или для диапазонов Vercel. Убедиться, что PgBouncer слушает на 0.0.0.0:6432. |
-| `password authentication failed`, `no pg_hba.conf entry` | PgBouncer не разрешает подключение к imperialdb с внешних IP. На сервере: в `~/pigsty/pigsty.yml` есть правило `db: imperialdb`, `order: 103`; затем **перезагрузить PgBouncer**: `cd ~/pigsty && ./pgsql.yml -l pg-meta -t pgbouncer` (или `sudo systemctl restart pgbouncer`). |
+| **`no authentication method is found`** | PgBouncer не применяет правило для imperialdb. На сервере **обязательно перезагрузить PgBouncer**, чтобы подхватить pgb_hba_rules: `cd ~/pigsty && ./pgsql.yml -l pg-meta -t pgbouncer`. Убедиться, что в `~/pigsty/pigsty.yml` есть строка с `db: imperialdb`, `order: 103`. |
+| `connection refused`, `ECONNREFUSED`, `timeout` | Порт 6432 недоступен с Vercel: фаервол — открыть 6432; PgBouncer должен слушать на 0.0.0.0:6432. |
+| `password authentication failed`, `no pg_hba.conf entry` | То же, что выше: правило для imperialdb в конфиге и **перезапуск PgBouncer**. |
 | `database "imperialdb" does not exist` | БД imperialdb не создана на сервере — создать через плейбук или вручную. |
 | Пароль с `$` или спецсимволами | В Vercel переменную задавать в кавычках или проверить, что значение не обрезано. |
 

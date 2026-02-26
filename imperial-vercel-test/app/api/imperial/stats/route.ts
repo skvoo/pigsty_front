@@ -26,7 +26,8 @@ export async function GET() {
         const { rows } = await pool.query(
           `SELECT COUNT(*)::int AS c FROM public.${table}`
         );
-        counts[table] = rows[0]?.c ?? 0;
+        const raw = rows[0]?.c;
+        counts[table] = typeof raw === 'number' ? raw : Number(raw) || 0;
       } catch {
         counts[table] = -1;
       }
