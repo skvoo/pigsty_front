@@ -19,11 +19,21 @@ export async function GET() {
   }
   try {
     const { rows } = await pool.query(
-      `SELECT id, slug, name, description, image_urls, category_id, created_at, updated_at
-       FROM public.products
-       ORDER BY created_at DESC`
+      `SELECT * FROM public.products ORDER BY created_at DESC`
     );
-    return NextResponse.json(rows);
+    return NextResponse.json(
+      rows.map((r: Record<string, unknown>) => ({
+        id: r.id,
+        slug: r.slug,
+        name: r.name,
+        description: r.description,
+        category_id: r.category_id,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+        price: r.price,
+        image_urls: r.image_urls ?? r.images ?? r.image ?? null,
+      }))
+    );
   } catch (e) {
     console.error(e);
     return NextResponse.json(

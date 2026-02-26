@@ -19,12 +19,20 @@ export async function GET() {
   }
   try {
     const { rows } = await pool.query(
-      `SELECT id, title_en, title_ru, excerpt_en, excerpt_ru, image, start_date, end_date, created_at, updated_at
-       FROM public.events
-       ORDER BY start_date DESC NULLS LAST, created_at DESC
-       LIMIT 50`
+      `SELECT * FROM public.events ORDER BY created_at DESC NULLS LAST, id DESC LIMIT 50`
     );
-    return NextResponse.json(rows);
+    return NextResponse.json(
+      rows.map((r: Record<string, unknown>) => ({
+        id: r.id,
+        image: r.image ?? r.image_url ?? r.images,
+        start_date: r.start_date ?? r.date ?? r.event_date ?? r.start_at ?? null,
+        end_date: r.end_date ?? r.end_at ?? null,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+        title_en: r.title ?? r.title_en ?? r.title_ru,
+        title_ru: r.title ?? r.title_ru ?? r.title_en,
+      }))
+    );
   } catch (e) {
     console.error(e);
     return NextResponse.json(
