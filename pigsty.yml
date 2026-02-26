@@ -80,6 +80,7 @@ all:
           - { user: dbuser_app ,db: app ,addr: world ,auth: pwd ,title: 'app user from internet (e.g. Vercel) — тест, потом allowlist' ,order: 100 }
           - { user: void ,db: all ,addr: world ,auth: pwd ,title: 'void from internet' ,order: 101 }
           - { user: tdadmin ,db: td ,addr: world ,auth: pwd ,title: 'TDAdmin from Vercel' ,order: 102 }
+          - { user: dbuser_app ,db: imperialdb ,addr: world ,auth: pwd ,title: 'Imperial test from Vercel' ,order: 103 }
         pg_crontab:     # https://pigsty.io/docs/pgsql/admin/crontab
           - '00 01 * * * /pg/bin/pg-backup full'
 

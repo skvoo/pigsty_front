@@ -52,9 +52,9 @@ export default function TestImperialPage() {
     const base = '';
     Promise.all([
       fetch(`${base}/api/imperial/stats`).then((r) => r.json()) as Promise<Stats>,
-      fetch(`${base}/api/imperial/news`).then((r) => (r.ok ? r.json() : r.json().then((e) => ({ __error: e.error || e.details || 'Failed' })))),
-      fetch(`${base}/api/imperial/products`).then((r) => (r.ok ? r.json() : r.json().then((e) => ({ __error: e.error || e.details || 'Failed' })))),
-      fetch(`${base}/api/imperial/events`).then((r) => (r.ok ? r.json() : r.json().then((e) => ({ __error: e.error || e.details || 'Failed' })))),
+      fetch(`${base}/api/imperial/news`).then((r) => (r.ok ? r.json() : r.json().then((e) => ({ __error: (e && (e.details || e.error)) || 'Failed' })))),
+      fetch(`${base}/api/imperial/products`).then((r) => (r.ok ? r.json() : r.json().then((e) => ({ __error: (e && (e.details || e.error)) || 'Failed' })))),
+      fetch(`${base}/api/imperial/events`).then((r) => (r.ok ? r.json() : r.json().then((e) => ({ __error: (e && (e.details || e.error)) || 'Failed' })))),
     ])
       .then(([s, n, p, e]) => {
         setStats(s);
