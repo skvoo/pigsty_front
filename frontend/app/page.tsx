@@ -96,6 +96,10 @@ export default function Home() {
         </section>
 
         <footer style={styles.footer}>
+          <a href="/test-imperial">Тест Imperial (imperialdb + MinIO)</a>
+          {' · '}
+          <a href="/check-db">Проверка подключения к любой БД</a>
+          {' · '}
           <a href="https://pigsty.io" target="_blank" rel="noopener noreferrer">
             Pigsty
           </a>

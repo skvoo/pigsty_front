@@ -1,0 +1,1 @@
+[{"labels":{"alertname":"TestAlert","level":"0","severity":"CRIT"},"annotations":{"summary":"Test notification","description":"Telegram delivery check"}}]

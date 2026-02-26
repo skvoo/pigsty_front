@@ -46,6 +46,10 @@ all:
           - { name: dbuser_meta ,password: Snmq1wst8FRv1dTUjsBLnDsY   ,pgbouncer: true ,roles: [dbrole_admin   ] ,comment: pigsty admin user }
           - { name: dbuser_view ,password: WxtKYa2bYlSgv9uiy7OyBmzj ,pgbouncer: true ,roles: [dbrole_readonly] ,comment: read-only viewer  }
           - { name: dbuser_app  ,password: AppTest7x9Kp2mNqR        ,pgbouncer: true ,roles: [dbrole_readwrite] ,comment: frontend app (news)" }
+          - { name: supabase_admin ,password: SupaAdmin7mN2pQ4r     ,pgbouncer: true ,roles: [dbrole_admin] ,comment: Supabase Studio external Postgres ,superuser: true ,createdb: true ,createrole: true }
+          - { name: supabase_auth_admin ,password: SupaAdmin7mN2pQ4r ,pgbouncer: true ,roles: [dbrole_admin] ,comment: GoTrue Auth (Supabase Auth API) — тот же пароль, что в POSTGRES_PASSWORD }
+          - { name: void ,password: Void7xKp9mNq2R                 ,pgbouncer: true ,roles: [dbrole_readwrite] ,comment: user Void }
+          - { name: tdadmin ,password: TdAdmin7xKp2mNqR            ,pgbouncer: true ,roles: [dbrole_admin]    ,comment: TD admin, Vercel integration }
 
         # define business databases : https://pigsty.io/docs/pgsql/config/db
         pg_databases:
@@ -57,9 +61,25 @@ all:
             extensions: [ postgis, vector ]
           - name: app
             comment: "Frontend test / news app"
+          - name: supabase
+            comment: "Supabase Studio analytics (Logflare)"
+          - name: td
+            comment: "TD app, Vercel integration"
+          # Целевые БД для миграции с Supabase Cloud: GD-lounge, imperial
+          - name: gdloungedb
+            comment: "Миграция из Supabase Cloud — GD-lounge"
+          - name: imperialdb
+            comment: "Миграция из Supabase Cloud — imperial"
 
         pg_hba_rules:   # https://pigsty.io/docs/pgsql/config/hba
+          - { user: all ,db: all ,addr: 172.17.0.0/16 ,auth: pwd ,title: 'Docker network (Supabase containers)' ,order: 50 }
           - { user: all ,db: all ,addr: intra ,auth: pwd ,title: 'everyone intranet access with password' ,order: 800 }
+        # PgBouncer (6432): сейчас открыто для теста (addr: world). План: DENY ALL + allowlist —
+        # убрать world, прописать только доверенные IP (бэкенды, админ). См. docs/PLAN-SERVER-104.md §4.
+        pgb_hba_rules:
+          - { user: dbuser_app ,db: app ,addr: world ,auth: pwd ,title: 'app user from internet (e.g. Vercel) — тест, потом allowlist' ,order: 100 }
+          - { user: void ,db: all ,addr: world ,auth: pwd ,title: 'void from internet' ,order: 101 }
+          - { user: tdadmin ,db: td ,addr: world ,auth: pwd ,title: 'TDAdmin from Vercel' ,order: 102 }
         pg_crontab:     # https://pigsty.io/docs/pgsql/admin/crontab
           - '00 01 * * * /pg/bin/pg-backup full'
 
@@ -90,17 +110,49 @@ all:
         etcd_safeguard: false             # prevent purging running etcd instance?
 
     #----------------------------------------------#
-    # MINIO : https://pigsty.io/docs/minio
+    # Мониторинг: внешние серверы (только node_exporter + регистрация в Prometheus)
+    # Запуск: ./node.yml -l monitored_nodes -t node_exporter,node_register
     #----------------------------------------------#
-    #minio:
-    #  hosts:
-    #    104.223.25.234: { minio_seq: 1 }
-    #  vars:
-    #    minio_cluster: minio
-    #    minio_users:                      # list of minio user to be created
-    #      - { access_key: pgbackrest  ,secret_key: ExKawoU1G31pfdXle5w1SWsM ,policy: pgsql }
-    #      - { access_key: s3user_meta ,secret_key: NzSfDju53N8JKpAG8v7nNlGi   ,policy: meta  }
-    #      - { access_key: s3user_data ,secret_key: 0NTHRj1minJLsvzFZAJiYq9V   ,policy: data  }
+    monitored_nodes:
+      hosts:
+        172.245.64.199: { node_seq: 2, ansible_user: root }   # n8n (вход по ключу root)
+        107.175.134.104: { node_seq: 3, ansible_user: root }  # password server (вход по ключу root)
+      vars:
+        node_exporter_enabled: true
+        node_register_enabled: true
+
+    #----------------------------------------------#
+    # MINIO : https://pigsty.io/docs/minio (S3-совместимое хранилище для TD и др.)
+    #----------------------------------------------#
+    minio:
+      hosts:
+        104.223.25.234: { minio_seq: 1 }
+      vars:
+        minio_cluster: minio
+        minio_https: false                    # Пока нет домена — HTTP по IP; когда будет домен: true + minio_domain, затем ./minio.yml -l minio
+        minio_buckets:
+          - { name: pgsql }
+          - { name: meta, versioning: true }
+          - { name: data }
+          - { name: td-tickets }              # бакет для загрузки файлов тикетов (TD)
+          # Миграция Supabase Storage → MinIO (GD-lounge, imperial)
+          - { name: gd-lounge-assets }
+          - { name: imperial-event-images }
+          - { name: imperial-furniture-images }
+          - { name: imperial-news-images }
+          - { name: imperial-product-images }
+          - { name: imperial-site-images }
+        minio_users:
+          - { access_key: pgbackrest  ,secret_key: ExKawoU1G31pfdXle5w1SWsM ,policy: pgsql }
+          - { access_key: s3user_meta ,secret_key: NzSfDju53N8JKpAG8v7nNlGi   ,policy: meta  }
+          - { access_key: s3user_data ,secret_key: 0NTHRj1minJLsvzFZAJiYq9V   ,policy: data  }
+          - { access_key: s3user_td    ,secret_key: TdStorage7xKp2mNqR          ,policy: td-tickets }
+          - { access_key: s3user_gdlounge   ,secret_key: GdLoungeStorage7xKp2mNqR   ,policy: gd-lounge-assets }
+          - { access_key: s3user_imperial_ev ,secret_key: ImperialStorage7xKp2mNqR  ,policy: imperial-event-images }
+          - { access_key: s3user_imperial_fu ,secret_key: ImperialStorage7xKp2mNqR  ,policy: imperial-furniture-images }
+          - { access_key: s3user_imperial_nw ,secret_key: ImperialStorage7xKp2mNqR  ,policy: imperial-news-images }
+          - { access_key: s3user_imperial_pr ,secret_key: ImperialStorage7xKp2mNqR  ,policy: imperial-product-images }
+          - { access_key: s3user_imperial_si ,secret_key: ImperialStorage7xKp2mNqR  ,policy: imperial-site-images }
 
     #----------------------------------------------#
     # DOCKER : https://pigsty.io/docs/docker
@@ -118,6 +170,33 @@ all:
             conf:                           # override /opt/pgadmin/.env
               PGADMIN_DEFAULT_EMAIL: admin@pigsty.cc
               PGADMIN_DEFAULT_PASSWORD: pigsty
+              # без этого при доступе по HTTP статика отдаётся с 302 → спиннер на странице входа
+              PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: 'False'
+
+    # Supabase Studio: ./docker.yml -l supabase && ./app.yml -l supabase → http://104.223.25.234:8000
+    supabase:
+      hosts: { 104.223.25.234: {} }
+      vars:
+        docker_enabled: true
+        app: supabase
+        apps:
+          supabase:
+            conf:
+              JWT_SECRET: pigsty-supabase-jwt-secret-at-least-32-chars-long
+              ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE
+              SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q
+              PG_META_CRYPTO_KEY: pigsty-pg-meta-crypto-key-32-chars!!
+              DASHBOARD_USERNAME: void
+              DASHBOARD_PASSWORD: V0id#xK9mQ
+              LOGFLARE_PUBLIC_ACCESS_TOKEN: 1234567890abcdef1234567890abcdef
+              LOGFLARE_PRIVATE_ACCESS_TOKEN: fedcba0987654321fedcba0987654321
+              POSTGRES_HOST: 104.223.25.234
+              POSTGRES_PORT: "5432"
+              POSTGRES_DB: app
+              POSTGRES_PASSWORD: SupaAdmin7mN2pQ4r
+              SITE_URL: http://104.223.25.234:8000
+              API_EXTERNAL_URL: http://104.223.25.234:8000
+              SUPABASE_PUBLIC_URL: http://104.223.25.234:8000
 
 
   #==============================================================#
@@ -139,6 +218,7 @@ all:
     infra_portal:                     # infra services exposed via portal
       home : { domain: i.pigsty }     # default domain name
       pgadmin : { domain: adm.pigsty ,endpoint: "${admin_ip}:8885" }
+      supa   : { domain: supa.pigsty ,endpoint: "${admin_ip}:8000" ,websocket: true }
 
     nginx_users:
       admin: "dftg3434g##$%bgnDfvbgb"

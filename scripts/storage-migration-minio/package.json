@@ -1,0 +1,14 @@
+{
+  "name": "storage-migration-supabase-to-minio",
+  "version": "1.0.0",
+  "description": "Migrate Supabase Cloud Storage objects to MinIO (Pigsty)",
+  "private": true,
+  "scripts": {
+    "migrate": "node migrate_storage_to_minio.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@supabase/supabase-js": "^2.0.0",
+    "dotenv": "^16.0.0"
+  }
+}
