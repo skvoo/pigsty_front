@@ -6,31 +6,10 @@ const STORAGE_BASE =
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_IMPERIAL_STORAGE_BASE) ||
   'http://104.223.25.234:9000';
 
-const SUPABASE_BUCKET_TO_MINIO: Record<string, string> = {
-  'product-images': 'imperial-product-images',
-  'event-images': 'imperial-event-images',
-  'news-images': 'imperial-news-images',
-  'site-images': 'imperial-site-images',
-  'furniture-images': 'imperial-furniture-images',
-};
-
 function imageUrl(bucket: string, path: string | null | undefined): string | null {
   if (!path || typeof path !== 'string') return null;
-  const trimmed = path.trim();
-  if (!trimmed) return null;
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    const supabaseMatch = trimmed.match(
-      /^https?:\/\/[^/]+\/storage\/v1\/object\/public\/([^/]+)\/(.*)$/
-    );
-    if (supabaseMatch) {
-      const [, supabaseBucket, objectPath] = supabaseMatch;
-      const minioBucket = SUPABASE_BUCKET_TO_MINIO[supabaseBucket] ?? `imperial-${supabaseBucket}`;
-      const clean = objectPath.replace(/^\/+/, '');
-      return `${STORAGE_BASE}/${minioBucket}/${clean}`;
-    }
-    return trimmed;
-  }
-  const clean = trimmed.replace(/^\/+/, '');
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  const clean = path.replace(/^\/+/, '');
   return `${STORAGE_BASE}/${bucket}/${clean}`;
 }
 
@@ -104,37 +83,10 @@ export default function TestImperialPage() {
     return [];
   };
 
-  function ProductImage({
-    urls,
-    bucket,
-    alt,
-    style,
-  }: {
-    urls: string[];
-    bucket: string;
-    alt: string;
-    style?: React.CSSProperties;
-  }) {
-    const [failed, setFailed] = useState<number[]>([]);
-    const resolved = urls
-      .map((p) => imageUrl(bucket, p))
-      .filter((url): url is string => url != null);
-    const currentIndex = resolved.findIndex((_, i) => !failed.includes(i));
-    const currentUrl = currentIndex >= 0 ? resolved[currentIndex] : null;
-    return currentUrl ? (
-      <img
-        src={currentUrl}
-        alt={alt}
-        style={style}
-        referrerPolicy="no-referrer"
-        onError={() => setFailed((prev) => [...prev, currentIndex])}
-      />
-    ) : (
-      <div style={{ ...style, background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
-        нет фото
-      </div>
-    );
-  }
+  const newsWithImages = news?.filter((item) => item.image) ?? [];
+  const productsWithImages =
+    products?.filter((item) => productImageUrls(item.image_urls).length > 0) ?? [];
+  const eventsWithImages = events?.filter((item) => item.image) ?? [];
 
   if (loading) {
     return (
@@ -151,7 +103,7 @@ export default function TestImperialPage() {
       <div style={styles.wrapper}>
         <h1 style={styles.title}>Тест: Imperial → imperialdb + MinIO</h1>
         <p style={styles.muted}>
-          Vercel → API routes → PostgreSQL (imperialdb) на 104.223.25.234:6432 · Файлы с MinIO
+          API → PostgreSQL (imperialdb) · Файлы с MinIO. Если сайт по HTTPS — задайте NEXT_PUBLIC_IMPERIAL_STORAGE_BASE с https://, иначе браузер заблокирует картинки (Mixed Content).
         </p>
 
         <section style={styles.card}>
@@ -179,10 +131,11 @@ export default function TestImperialPage() {
         <section style={styles.card}>
           <h2 style={styles.h2}>Новости (public.news)</h2>
           {errors.news && <p style={{ color: 'var(--error)' }}>{errors.news}</p>}
-          {news && news.length === 0 && <p style={styles.muted}>Записей нет.</p>}
-          {news && news.length > 0 && (
+          <p style={styles.muted}>Показаны только записи с картинками (до 6).</p>
+          {newsWithImages.length === 0 && <p style={styles.muted}>Записей с картинками нет.</p>}
+          {newsWithImages.length > 0 && (
             <div style={styles.grid}>
-              {news.slice(0, 6).map((item) => {
+              {newsWithImages.slice(0, 6).map((item) => {
                 const src = imageUrl('imperial-news-images', item.image);
                 return (
                   <div key={item.id} style={styles.tile}>
@@ -206,19 +159,20 @@ export default function TestImperialPage() {
         <section style={styles.card}>
           <h2 style={styles.h2}>Продукты (public.products)</h2>
           {errors.products && <p style={{ color: 'var(--error)' }}>{errors.products}</p>}
-          {products && products.length === 0 && <p style={styles.muted}>Записей нет.</p>}
-          {products && products.length > 0 && (
+          <p style={styles.muted}>Показаны только записи с картинками (до 6).</p>
+          {productsWithImages.length === 0 && <p style={styles.muted}>Записей с картинками нет.</p>}
+          {productsWithImages.length > 0 && (
             <div style={styles.grid}>
-              {products.slice(0, 6).map((item) => {
+              {productsWithImages.slice(0, 6).map((item) => {
                 const urls = productImageUrls(item.image_urls);
+                const firstUrl = urls[0]
+                  ? imageUrl('imperial-product-images', urls[0])
+                  : null;
                 return (
                   <div key={item.id} style={styles.tile}>
-                    <ProductImage
-                      urls={urls}
-                      bucket="imperial-product-images"
-                      alt=""
-                      style={styles.thumb}
-                    />
+                    {firstUrl && (
+                      <img src={firstUrl} alt="" style={styles.thumb} referrerPolicy="no-referrer" />
+                    )}
                     <div>
                       <strong>{item.name}</strong>
                       {item.price != null && (
@@ -238,10 +192,11 @@ export default function TestImperialPage() {
         <section style={styles.card}>
           <h2 style={styles.h2}>События (public.events)</h2>
           {errors.events && <p style={{ color: 'var(--error)' }}>{errors.events}</p>}
-          {events && events.length === 0 && <p style={styles.muted}>Записей нет.</p>}
-          {events && events.length > 0 && (
+          <p style={styles.muted}>Показаны только записи с картинками (до 6).</p>
+          {eventsWithImages.length === 0 && <p style={styles.muted}>Записей с картинками нет.</p>}
+          {eventsWithImages.length > 0 && (
             <div style={styles.grid}>
-              {events.slice(0, 6).map((item) => {
+              {eventsWithImages.slice(0, 6).map((item) => {
                 const src = imageUrl('imperial-event-images', item.image);
                 return (
                   <div key={item.id} style={styles.tile}>
