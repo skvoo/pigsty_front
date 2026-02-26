@@ -6,10 +6,31 @@ const STORAGE_BASE =
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_IMPERIAL_STORAGE_BASE) ||
   'http://104.223.25.234:9000';
 
+const SUPABASE_BUCKET_TO_MINIO: Record<string, string> = {
+  'product-images': 'imperial-product-images',
+  'event-images': 'imperial-event-images',
+  'news-images': 'imperial-news-images',
+  'site-images': 'imperial-site-images',
+  'furniture-images': 'imperial-furniture-images',
+};
+
 function imageUrl(bucket: string, path: string | null | undefined): string | null {
   if (!path || typeof path !== 'string') return null;
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  const clean = path.replace(/^\/+/, '');
+  const trimmed = path.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    const supabaseMatch = trimmed.match(
+      /^https?:\/\/[^/]+\/storage\/v1\/object\/public\/([^/]+)\/(.*)$/
+    );
+    if (supabaseMatch) {
+      const [, supabaseBucket, objectPath] = supabaseMatch;
+      const minioBucket = SUPABASE_BUCKET_TO_MINIO[supabaseBucket] ?? `imperial-${supabaseBucket}`;
+      const clean = objectPath.replace(/^\/+/, '');
+      return `${STORAGE_BASE}/${minioBucket}/${clean}`;
+    }
+    return trimmed;
+  }
+  const clean = trimmed.replace(/^\/+/, '');
   return `${STORAGE_BASE}/${bucket}/${clean}`;
 }
 
@@ -82,6 +103,38 @@ export default function TestImperialPage() {
     }
     return [];
   };
+
+  function ProductImage({
+    urls,
+    bucket,
+    alt,
+    style,
+  }: {
+    urls: string[];
+    bucket: string;
+    alt: string;
+    style?: React.CSSProperties;
+  }) {
+    const [failed, setFailed] = useState<number[]>([]);
+    const resolved = urls
+      .map((p) => imageUrl(bucket, p))
+      .filter((url): url is string => url != null);
+    const currentIndex = resolved.findIndex((_, i) => !failed.includes(i));
+    const currentUrl = currentIndex >= 0 ? resolved[currentIndex] : null;
+    return currentUrl ? (
+      <img
+        src={currentUrl}
+        alt={alt}
+        style={style}
+        referrerPolicy="no-referrer"
+        onError={() => setFailed((prev) => [...prev, currentIndex])}
+      />
+    ) : (
+      <div style={{ ...style, background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+        нет фото
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -158,14 +211,14 @@ export default function TestImperialPage() {
             <div style={styles.grid}>
               {products.slice(0, 6).map((item) => {
                 const urls = productImageUrls(item.image_urls);
-                const firstUrl = urls[0]
-                  ? imageUrl('imperial-product-images', urls[0])
-                  : null;
                 return (
                   <div key={item.id} style={styles.tile}>
-                    {firstUrl && (
-                      <img src={firstUrl} alt="" style={styles.thumb} referrerPolicy="no-referrer" />
-                    )}
+                    <ProductImage
+                      urls={urls}
+                      bucket="imperial-product-images"
+                      alt=""
+                      style={styles.thumb}
+                    />
                     <div>
                       <strong>{item.name}</strong>
                       {item.price != null && (
