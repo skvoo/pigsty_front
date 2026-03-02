@@ -23,7 +23,7 @@ npm run dev
 1. Импортировать репозиторий в Vercel.
 2. В **Settings → Environment Variables** добавить:
    - `DATABASE_URL_IMPERIAL` = `postgresql://USER:PASSWORD@104.223.25.234:6432/imperialdb`
-   - (по желанию) `NEXT_PUBLIC_IMPERIAL_STORAGE_BASE` = `http://104.223.25.234:9000`
+   - (по желанию) `NEXT_PUBLIC_IMPERIAL_STORAGE_BASE` = `https://db.sharconai.com/s3` — по умолчанию уже используется в коде
 3. Деплой. Открыть `https://<проект>.vercel.app/test-imperial`.
 
 Подробная инструкция для фронтенда: [docs/FRONTEND-IMPERIAL-VERCEL-SWITCH.md](docs/FRONTEND-IMPERIAL-VERCEL-SWITCH.md).

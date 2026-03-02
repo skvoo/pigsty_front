@@ -14,7 +14,7 @@
 ## 2. Что будет после переключения
 
 - **БД:** данные из **imperialdb** на сервере **104.223.25.234** через ваш API (`fetch('/api/imperial/...')`).
-- **Файлы:** MinIO на том же сервере; отображение по URL `http://104.223.25.234:9000/<bucket>/<path>`.
+- **Файлы:** MinIO на том же сервере; отображение по URL **`https://db.sharconai.com/s3/<bucket>/<path>`** (прокси через Nginx на порту 443).
 
 ---
 
@@ -26,7 +26,7 @@
 |------------|----------|
 | `DATABASE_URL_IMPERIAL` | `postgresql://USER:PASSWORD@104.223.25.234:6432/imperialdb` |
 
-Для картинок по умолчанию используется `http://104.223.25.234:9000`; при необходимости задать `NEXT_PUBLIC_IMPERIAL_STORAGE_BASE`.
+**Картинки:** по умолчанию используются с **`https://db.sharconai.com/s3`** (MinIO через Nginx). Переменная `NEXT_PUBLIC_IMPERIAL_STORAGE_BASE` задаётся только если нужен другой базовый URL (по умолчанию в коде уже `https://db.sharconai.com/s3`).
 
 **Важно:** на сервере в PgBouncer должно быть разрешено подключение к БД `imperialdb` с внешних IP (добавить правило в `pgb_hba_rules` в pigsty.yml).
 

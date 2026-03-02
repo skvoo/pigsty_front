@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 const STORAGE_BASE =
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_IMPERIAL_STORAGE_BASE) ||
-  'http://104.223.25.234:9000';
+  'https://db.sharconai.com/s3';
 
 function imageUrl(bucket: string, path: string | null | undefined): string | null {
   if (!path || typeof path !== 'string') return null;
@@ -103,7 +103,7 @@ export default function TestImperialPage() {
       <div style={styles.wrapper}>
         <h1 style={styles.title}>Тест: Imperial → imperialdb + MinIO</h1>
         <p style={styles.muted}>
-          API → PostgreSQL (imperialdb) · Файлы с MinIO. Если сайт по HTTPS — задайте NEXT_PUBLIC_IMPERIAL_STORAGE_BASE с https://, иначе браузер заблокирует картинки (Mixed Content).
+          API → PostgreSQL (imperialdb) · Картинки с https://db.sharconai.com/s3 (MinIO через Nginx). При необходимости другой базовый URL — задайте NEXT_PUBLIC_IMPERIAL_STORAGE_BASE.
         </p>
 
         <section style={styles.card}>
