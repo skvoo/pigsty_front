@@ -32,7 +32,23 @@ export async function GET() {
         counts[table] = -1;
       }
     }
-    return NextResponse.json({ ok: true, counts });
+    let dbInfo: { database?: string; host?: string } = {};
+    try {
+      const { rows } = await pool.query(
+        `SELECT current_database() AS database, inet_server_addr()::text AS host`
+      );
+      if (rows[0]) {
+        dbInfo = { database: rows[0].database, host: rows[0].host ?? undefined };
+      }
+    } catch {
+      try {
+        const { rows } = await pool.query(`SELECT current_database() AS database`);
+        if (rows[0]) dbInfo = { database: rows[0].database };
+      } catch {
+        /* ignore */
+      }
+    }
+    return NextResponse.json({ ok: true, counts, ...dbInfo });
   } catch (e) {
     console.error(e);
     return NextResponse.json(

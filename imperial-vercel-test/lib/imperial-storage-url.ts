@@ -1,8 +1,5 @@
 /**
- * Imperial media URLs: MinIO (db.sharconai.com/s3).
- * - DB may now store MinIO URLs directly (after migration); those are passed through.
- * - Legacy Supabase Storage URLs are rewritten on the fly for backward compatibility.
- * - WordPress URLs are unchanged until migrated (see scripts/imperial-wp-images-to-minio).
+ * Same as frontend/lib/imperial-storage-url.ts — keep in sync.
  */
 
 const DEFAULT_S3_BASE = 'https://db.sharconai.com/s3';
@@ -15,7 +12,6 @@ function getS3Base(): string {
   return b.replace(/\/+$/, '');
 }
 
-/** Supabase bucket name (public) -> MinIO bucket on Pigsty */
 const SUPABASE_TO_MINIO_BUCKET: Record<string, string> = {
   'product-images': 'imperial-product-images',
   'event-images': 'imperial-event-images',
@@ -24,10 +20,6 @@ const SUPABASE_TO_MINIO_BUCKET: Record<string, string> = {
   'site-images': 'imperial-site-images',
 };
 
-/**
- * Single URL: if already MinIO base → return as-is; else Supabase public URL -> MinIO (db.sharconai.com/s3/...).
- * Any URL containing supabase.co and storage/v1/object/public is rewritten to MinIO.
- */
 export function rewriteImperialMediaUrl(
   url: string | null | undefined
 ): string | null {
@@ -38,7 +30,6 @@ export function rewriteImperialMediaUrl(
   if (/^https?:\/\//i.test(u)) {
     if (u.startsWith(`${base}/`) || u === base) return u;
 
-    // Supabase Storage public URL (any subdomain): .../storage/v1/object/public/<bucket>/<key>
     const m = u.match(
       /\/storage\/v1\/object\/public\/([^/]+)\/([^?#]+)/i
     );
@@ -54,7 +45,6 @@ export function rewriteImperialMediaUrl(
         return `${base}/${minioBucket}/${encodedKey}`;
       }
     }
-    // Fallback: any supabase.co URL with that path (unknown bucket → imperial-<bucket>)
     if (/supabase\.co/i.test(u)) {
       const m2 = u.match(/\/storage\/v1\/object\/public\/([^/]+)\/([^?#]+)/i);
       if (m2) {
@@ -84,7 +74,6 @@ function rewriteProductImageEntry(x: unknown): unknown {
   return x;
 }
 
-/** products.images: json array of strings or { url: string } */
 export function rewriteImperialProductImages(
   raw: unknown
 ): string[] | unknown[] | string | null {

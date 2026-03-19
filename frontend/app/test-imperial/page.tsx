@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 const STORAGE_BASE =
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_IMPERIAL_STORAGE_BASE) ||
-  'http://104.223.25.234:9000';
+  'https://db.sharconai.com/s3';
 
 function imageUrl(bucket: string, path: string | null | undefined): string | null {
   if (!path || typeof path !== 'string') return null;
@@ -13,7 +13,13 @@ function imageUrl(bucket: string, path: string | null | undefined): string | nul
   return `${STORAGE_BASE}/${bucket}/${clean}`;
 }
 
-type Stats = { ok: boolean; counts?: Record<string, number>; error?: string };
+type Stats = {
+  ok: boolean;
+  counts?: Record<string, number>;
+  error?: string;
+  database?: string;
+  host?: string;
+};
 type NewsItem = {
   id: string;
   slug: string;
@@ -70,12 +76,21 @@ export default function TestImperialPage() {
   }, []);
 
   const productImageUrls = (image_urls: ProductItem['image_urls']): string[] => {
+    const asStrings = (arr: unknown[]): string[] =>
+      arr
+        .map((x) => {
+          if (typeof x === 'string') return x;
+          if (x && typeof x === 'object' && 'url' in x && typeof (x as { url: string }).url === 'string')
+            return (x as { url: string }).url;
+          return '';
+        })
+        .filter(Boolean);
     if (!image_urls) return [];
-    if (Array.isArray(image_urls)) return image_urls;
+    if (Array.isArray(image_urls)) return asStrings(image_urls);
     if (typeof image_urls === 'string') {
       try {
         const parsed = JSON.parse(image_urls);
-        return Array.isArray(parsed) ? parsed : [image_urls];
+        return Array.isArray(parsed) ? asStrings(parsed) : [image_urls];
       } catch {
         return [image_urls];
       }
@@ -103,15 +118,29 @@ export default function TestImperialPage() {
       <div style={styles.wrapper}>
         <h1 style={styles.title}>Тест: Imperial → imperialdb + MinIO</h1>
         <p style={styles.muted}>
-          Vercel → API routes → PostgreSQL (imperialdb) на 104.223.25.234:6432 · Файлы с MinIO
+          API подключается к БД по <code>DATABASE_URL_IMPERIAL</code>. Картинки отдаются с MinIO (<code>https://db.sharconai.com/s3</code>); старые ссылки Supabase переписываются в API на лету.
         </p>
 
         <section style={styles.card}>
           <h2 style={styles.h2}>Подключение к БД</h2>
           {stats?.ok ? (
-            <p style={{ color: 'var(--success)' }}>
-              ✓ DATABASE_URL_IMPERIAL настроен. Записей в таблицах:
-            </p>
+            <>
+              <p style={{ color: 'var(--success)' }}>
+                ✓ DATABASE_URL_IMPERIAL настроен. Это подключение к реальной БД:
+              </p>
+              {(stats.database || stats.host) && (
+                <p style={{ ...styles.muted, marginTop: '0.25rem' }}>
+                  База: <strong>{stats.database ?? '—'}</strong>
+                  {stats.host != null && stats.host !== '' && (
+                    <> · Хост: <strong>{stats.host}</strong></>
+                  )}
+                  {stats.database === 'imperialdb' && stats.host && (
+                    <> — для Pigsty ожидается хост 104.223.25.234</>
+                  )}
+                </p>
+              )}
+              <p style={styles.muted}>Записей в таблицах:</p>
+            </>
           ) : (
             <p style={{ color: 'var(--error)' }}>
               ✗ Ошибка: {stats?.error ?? errors.global ?? 'DATABASE_URL_IMPERIAL не задан в Vercel'}
@@ -226,7 +255,7 @@ export default function TestImperialPage() {
           {' · '}
           <a href="/check-db">Проверка любой БД</a>
           {' · '}
-          Деплой: Vercel · БД: imperialdb · Файлы: MinIO
+          Деплой: Vercel · БД: <code>DATABASE_URL_IMPERIAL</code> → imperialdb на Pigsty · Картинки: MinIO (db.sharconai.com/s3)
         </footer>
       </div>
     </main>

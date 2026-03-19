@@ -13,7 +13,13 @@ function imageUrl(bucket: string, path: string | null | undefined): string | nul
   return `${STORAGE_BASE}/${bucket}/${clean}`;
 }
 
-type Stats = { ok: boolean; counts?: Record<string, number>; error?: string };
+type Stats = {
+  ok: boolean;
+  counts?: Record<string, number>;
+  error?: string;
+  database?: string;
+  host?: string;
+};
 type NewsItem = {
   id: string;
   slug: string;
@@ -103,15 +109,29 @@ export default function TestImperialPage() {
       <div style={styles.wrapper}>
         <h1 style={styles.title}>Тест: Imperial → imperialdb + MinIO</h1>
         <p style={styles.muted}>
-          API → PostgreSQL (imperialdb) · Картинки с https://db.sharconai.com/s3 (MinIO через Nginx). При необходимости другой базовый URL — задайте NEXT_PUBLIC_IMPERIAL_STORAGE_BASE.
+          API подключается по <code>DATABASE_URL_IMPERIAL</code>. Картинки отдаются с MinIO (https://db.sharconai.com/s3); старые ссылки Supabase переписываются в API на лету.
         </p>
 
         <section style={styles.card}>
           <h2 style={styles.h2}>Подключение к БД</h2>
           {stats?.ok ? (
-            <p style={{ color: 'var(--success)' }}>
-              ✓ DATABASE_URL_IMPERIAL настроен. Записей в таблицах:
-            </p>
+            <>
+              <p style={{ color: 'var(--success)' }}>
+                ✓ DATABASE_URL_IMPERIAL настроен. Это подключение к реальной БД:
+              </p>
+              {(stats.database || stats.host) && (
+                <p style={{ ...styles.muted, marginTop: '0.25rem' }}>
+                  База: <strong>{stats.database ?? '—'}</strong>
+                  {stats.host != null && stats.host !== '' && (
+                    <> · Хост: <strong>{stats.host}</strong></>
+                  )}
+                  {stats.database === 'imperialdb' && stats.host && (
+                    <> — для Pigsty ожидается хост 104.223.25.234</>
+                  )}
+                </p>
+              )}
+              <p style={styles.muted}>Записей в таблицах:</p>
+            </>
           ) : (
             <p style={{ color: 'var(--error)' }}>
               ✗ Ошибка: {stats?.error ?? errors.global ?? 'DATABASE_URL_IMPERIAL не задан в Vercel'}

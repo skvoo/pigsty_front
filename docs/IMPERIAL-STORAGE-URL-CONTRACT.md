@@ -23,6 +23,8 @@
 
 Эндпоинты `/api/imperial/products`, `/api/imperial/news`, `/api/imperial/events` отдают URL из БД; если в БД ещё есть старые Supabase-URL — они **переписываются** в MinIO на лету (см. [`frontend/lib/imperial-storage-url.ts`](../frontend/lib/imperial-storage-url.ts)). После миграции БД в ответах в основном уже MinIO-URL.
 
+Проверка подключения: `/api/imperial/stats` возвращает счётчики по таблицам и поля `database`, `host` (текущая БД и хост) — на странице `/test-imperial` отображается «База: imperialdb · Хост: …», чтобы убедиться, что `DATABASE_URL_IMPERIAL` указывает на нужную БД (для Pigsty ожидается хост 104.223.25.234).
+
 Переменные:
 
 - `IMPERIAL_S3_PUBLIC_BASE` — база для переписанных URL (сервер). Если не задана, используется `NEXT_PUBLIC_IMPERIAL_STORAGE_BASE` или `https://db.sharconai.com/s3`.
